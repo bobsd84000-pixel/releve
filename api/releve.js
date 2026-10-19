@@ -4,26 +4,29 @@ import { licenceValide } from './licence.js';
 const JOUR = 86400, NB = 30;
 const UA = 'web:releve:2.0 (par Relevé)';
 
-async function jetonReddit() {
-  const id = process.env.REDDIT_CLIENT_ID, secret = process.env.REDDIT_CLIENT_SECRET;
-  if (!id || !secret) return null;
+async function jetonReddit(diag) {
+  const id = (process.env.REDDIT_CLIENT_ID || '').trim(), secret = (process.env.REDDIT_CLIENT_SECRET || '').trim();
+  if (!id || !secret) { diag.jeton = 'identifiants absents'; return null; }
   const r = await fetch('https://www.reddit.com/api/v1/access_token', {
     method: 'POST',
     headers: { Authorization: 'Basic ' + Buffer.from(id + ':' + secret).toString('base64'),
                'content-type': 'application/x-www-form-urlencoded', 'user-agent': UA },
     body: 'grant_type=client_credentials'
   });
-  if (!r.ok) return null;
-  return (await r.json()).access_token;
+  if (!r.ok) { diag.jeton = 'jeton refusé ' + r.status; return null; }
+  const j = await r.json().catch(() => ({}));
+  if (!j.access_token) { diag.jeton = 'jeton vide : ' + (j.error || 'inconnu'); return null; }
+  diag.jeton = 'ok';
+  return j.access_token;
 }
 
-async function reddit(q) {
-  const jeton = await jetonReddit();
+async function reddit(q, diag) {
+  const jeton = await jetonReddit(diag);
   const base = jeton ? 'https://oauth.reddit.com' : 'https://www.reddit.com';
   const headers = { 'user-agent': UA };
   if (jeton) headers.Authorization = 'Bearer ' + jeton;
   const r = await fetch(`${base}/search${jeton ? '' : '.json'}?q=${encodeURIComponent(q)}&sort=top&t=month&limit=60&raw_json=1`, { headers });
-  if (!r.ok) throw new Error('reddit ' + r.status);
+  if (!r.ok) throw new Error(`recherche ${jeton ? 'avec' : 'sans'} jeton refusée ${r.status}`);
   const j = await r.json();
   return j.data.children.map(c => c.data).map(d => ({ titre: d.title, lien: 'https://www.reddit.com' + d.permalink,
     score: d.score || 0, com: d.num_comments || 0, t: d.created_utc, src: 'r/' + d.subreddit }));
@@ -75,13 +78,15 @@ export default async function handler(req, res) {
 
   const now = Math.floor(Date.now() / 1000), depuis = now - NB * JOUR;
   const noms = ['Reddit', 'Hacker News', 'GitHub'];
-  const res3 = await Promise.allSettled([reddit(q), hackerNews(q, depuis), github(q, depuis)]);
-  const sources = {};
+  const diag = {};
+  const res3 = await Promise.allSettled([reddit(q, diag), hackerNews(q, depuis), github(q, depuis)]);
+  const sources = {}, erreurs = {};
   let items = [];
   res3.forEach((r, i) => {
     if (r.status === 'fulfilled') { sources[noms[i]] = r.value.length; items = items.concat(r.value.filter(x => x.t >= depuis)); }
-    else sources[noms[i]] = null;
+    else { sources[noms[i]] = null; erreurs[noms[i]] = r.reason?.message || 'erreur inconnue'; }
   });
+  if (erreurs.Reddit) erreurs.Reddit += ` (jeton : ${diag.jeton || 'non tenté'})`;
 
   // Classement : réactions relatives à la source + petit bonus de volume
   const max = {};
@@ -95,5 +100,5 @@ export default async function handler(req, res) {
     pro = await licenceValide(licence);
     if (pro) { try { synthese = await resumeIA(q, items); } catch (e) { erreurIA = e.message; } }
   }
-  res.status(200).json({ q, sources, items: items.slice(0, 150), pro, synthese, erreurIA });
+  res.status(200).json({ q, sources, erreurs, items: items.slice(0, 150), pro, synthese, erreurIA });
 }
