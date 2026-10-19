@@ -13,9 +13,9 @@ export async function licenceValide(cle) {
     });
     const j = await r.json();
     valide = !!j.valid && ['active', 'inactive'].includes(j.license_key?.status);
-    const boutique = process.env.LEMON_STORE_ID, produit = process.env.LEMON_PRODUCT_ID;
-    if (boutique && String(j.meta?.store_id) !== String(boutique)) valide = false;
-    if (produit && String(j.meta?.product_id) !== String(produit)) valide = false;
+    const boutique = (process.env.LEMON_STORE_ID || "").trim(), produit = (process.env.LEMON_PRODUCT_ID || "").trim();
+    if (!boutique || String(j.meta?.store_id) !== boutique) valide = false; // boutique obligatoire : refuse les licences d'autres vendeurs
+    if (produit && String(j.meta?.product_id) !== produit) valide = false;
   } catch (e) { valide = false; }
   cache.set(cle, { valide, expire: Date.now() + 3600e3 });
   return valide;
