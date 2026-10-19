@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Relevé</title>
+<meta name="description" content="Ce qui s'est dit sur un sujet ces 30 derniers jours : Reddit, Hacker News, GitHub, résumé par IA.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* Tokens */
+:root{
+  --papier:#E8ECEF; --carte:#FFFFFF; --encre:#14213D; --ardoise:#5B6B7A;
+  --signal:#F2C14E; --trait:#C9D1D8; --alerte:#B23A48; --ok:#2F7D5B;
+  --r1:4px; --r2:14px;
+  --titre:"Bricolage Grotesque",system-ui,sans-serif;
+  --texte:"Instrument Sans",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--papier:#0E1729;--carte:#16223A;--encre:#E8ECEF;--ardoise:#93A1AE;--trait:#283752}
+}
+:root[data-theme="dark"]{--papier:#0E1729;--carte:#16223A;--encre:#E8ECEF;--ardoise:#93A1AE;--trait:#283752}
+
+*{box-sizing:border-box;margin:0}
+body{background:var(--papier);color:var(--encre);font:16px/1.55 var(--texte);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--signal);outline-offset:2px}
+.page{max-width:760px;margin:0 auto;padding:0 16px 64px}
+
+/* En-tête */
+header{display:flex;justify-content:space-between;align-items:center;padding:18px 0}
+.marque{font:800 22px/1 var(--titre);letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.marque i{width:10px;height:22px;background:var(--signal);border-radius:2px;display:inline-block}
+.btn-cle{background:none;border:1px solid var(--trait);border-radius:999px;padding:6px 14px;font-size:14px;cursor:pointer}
+.btn-cle b{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ardoise);margin-right:6px}
+.btn-cle.active b{background:var(--ok)}
+
+/* Recherche */
+.recherche{padding:28px 0 8px}
+.recherche h1{font:800 clamp(34px,9vw,58px)/1.02 var(--titre);letter-spacing:-.035em;max-width:14ch}
+.recherche p{color:var(--ardoise);margin-top:10px;max-width:46ch}
+form{display:flex;gap:8px;margin-top:22px}
+form input{flex:1;min-width:0;background:var(--carte);border:2px solid var(--encre);border-radius:var(--r2);padding:14px 16px;font-size:17px}
+form button{background:var(--encre);color:var(--papier);border:0;border-radius:var(--r2);padding:0 20px;font-weight:600;cursor:pointer}
+form button:disabled{opacity:.5}
+.recents{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.recents button{background:none;border:1px dashed var(--trait);border-radius:999px;padding:4px 12px;font-size:14px;color:var(--ardoise);cursor:pointer}
+
+/* Bande 30 jours : l'élément signature */
+.bande{margin-top:34px}
+.barres{display:flex;align-items:flex-end;gap:3px;height:120px;border-bottom:2px solid var(--encre)}
+.barre{flex:1;background:var(--trait);border-radius:var(--r1) var(--r1) 0 0;height:6%;transition:height .6s cubic-bezier(.2,.8,.2,1);cursor:pointer;position:relative}
+.barre.pleine{background:var(--encre)}
+.barre.pic{background:var(--signal)}
+.axe{display:flex;justify-content:space-between;font-size:13px;color:var(--ardoise);margin-top:6px}
+.bulle{min-height:22px;font-size:14px;margin-top:4px;color:var(--ardoise)}
+@media (prefers-reduced-motion:reduce){.barre{transition:none}}
+
+/* Résultats */
+.etat{margin-top:20px;font-size:14px;color:var(--ardoise)}
+.sources{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;font-size:14px}
+.sources span::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--ardoise)}
+.sources .ok::before{background:var(--ok)} .sources .ko::before{background:var(--alerte)}
+section.bloc{margin-top:36px}
+.bloc h2{font:800 24px/1.15 var(--titre);letter-spacing:-.02em;margin-bottom:12px}
+.resume{background:var(--carte);border-left:6px solid var(--signal);border-radius:0 var(--r2) var(--r2) 0;padding:18px 20px}
+.resume p{font-size:18px;line-height:1.5}
+.resume h3{font:600 15px/1.3 var(--texte);margin:16px 0 6px}
+.resume ul{padding-left:18px}
+.resume li{margin:4px 0}
+.mots{display:flex;flex-wrap:wrap;gap:8px}
+.mots span{background:var(--carte);border:1px solid var(--trait);border-radius:var(--r1);padding:4px 10px}
+.mots small{color:var(--ardoise);margin-left:4px}
+.liste{list-style:none;padding:0;border-top:1px solid var(--trait)}
+.liste li{display:grid;grid-template-columns:52px 1fr;gap:12px;padding:14px 0;border-bottom:1px solid var(--trait)}
+.liste .pts{font:800 20px/1 var(--titre);text-align:right;padding-top:2px}
+.liste .pts small{display:block;font:400 12px/1.4 var(--texte);color:var(--ardoise)}
+.liste a{text-decoration:none;font-weight:600;overflow-wrap:anywhere}
+.liste a:hover{text-decoration:underline}
+.liste .meta{font-size:14px;color:var(--ardoise);margin-top:2px}
+.actions{display:flex;gap:8px;margin-top:20px}
+.actions button{background:var(--carte);border:1px solid var(--trait);border-radius:var(--r2);padding:10px 16px;cursor:pointer}
+.cache{display:none}
+.quota{font-size:14px;color:var(--ardoise);margin-top:10px}
+.quota button{background:none;border:0;padding:0;text-decoration:underline;cursor:pointer;color:var(--encre);font-weight:600}
+.offre{list-style:none;padding:0;margin:0 0 16px}
+.offre li{padding:6px 0;border-bottom:1px solid var(--trait)}
+.prix{font:800 30px/1 var(--titre);margin:4px 0 12px}
+.prix small{font:400 14px var(--texte);color:var(--ardoise)}
+.acheter{display:block;text-align:center;background:var(--signal);color:#14213D;border-radius:var(--r2);padding:12px;font-weight:600;text-decoration:none;margin-bottom:16px}
+.msg{font-size:14px;min-height:20px;margin-top:8px}
+
+/* Clé API */
+dialog{border:0;border-radius:var(--r2);padding:22px;max-width:420px;width:calc(100% - 32px);background:var(--carte);color:var(--encre)}
+dialog::backdrop{background:rgba(14,23,41,.55)}
+dialog h2{font:800 22px/1.2 var(--titre)}
+dialog p{color:var(--ardoise);font-size:14px;margin:8px 0 14px}
+dialog input{width:100%;border:2px solid var(--encre);border-radius:var(--r1);padding:10px;background:var(--papier)}
+dialog .ligne{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+dialog button{border:0;border-radius:var(--r1);padding:10px 14px;cursor:pointer;background:var(--papier)}
+dialog button.go{background:var(--encre);color:var(--papier)}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="marque"><i></i>Relevé</div>
+    <button class="btn-cle" id="ouvrirCle" type="button"><b></b><span id="txtPro">Passer Pro</span></button>
+  </header>
+
+  <main>
+    <div class="recherche">
+      <h1>Ce qui s'est dit en 30 jours.</h1>
+      <p>Tape un sujet. Relevé lit Reddit, Hacker News et GitHub sur le dernier mois et te sort l'essentiel.</p>
+      <form id="form">
+        <input id="q" type="search" placeholder="ex. Claude Code, Vercel, Starlink…" autocomplete="off" required aria-label="Sujet à relever">
+        <button id="go" type="submit">Relever</button>
+      </form>
+      <div class="quota" id="quota"></div>
+      <div class="recents" id="recents"></div>
+    </div>
+
+    <div class="bande" aria-label="Volume de publications par jour">
+      <div class="barres" id="barres"></div>
+      <div class="axe"><span id="axeDebut">il y a 30 jours</span><span>aujourd'hui</span></div>
+      <div class="bulle" id="bulle">Touche une barre pour voir le jour.</div>
+    </div>
+
+    <div class="etat" id="etat"></div>
+    <div class="sources" id="sources"></div>
+
+    <div id="resultats" class="cache">
+      <section class="bloc"><h2>En bref</h2><div class="resume" id="resume"></div></section>
+      <section class="bloc"><h2>Mots qui reviennent</h2><div class="mots" id="mots"></div></section>
+      <section class="bloc"><h2>Les publications qui ont le plus réagi</h2><ul class="liste" id="liste"></ul></section>
+      <div class="actions"><button id="copier" type="button">Copier le relevé</button></div>
+    </div>
+  </main>
+</div>
+
+<dialog id="dlg">
+  <h2>Relevé Pro</h2>
+  <div class="prix" id="prix"></div>
+  <ul class="offre">
+    <li>Relevés illimités</li>
+    <li>Résumé par IA : tendances et points à surveiller</li>
+    <li>Annulable à tout moment</li>
+  </ul>
+  <a class="acheter" id="acheter" href="#" target="_blank" rel="noopener">Acheter Pro</a>
+  <p>Déjà acheté ? Colle la clé de licence reçue par e-mail.</p>
+  <input id="cle" type="text" placeholder="Clé de licence" autocomplete="off" spellcheck="false">
+  <div class="msg" id="msgCle"></div>
+  <div class="ligne">
+    <button type="button" id="effacerCle">Retirer</button>
+    <button type="button" class="go" id="sauverCle">Activer</button>
+  </div>
+</dialog>
+
+<script>
+const $ = s => document.querySelector(s);
+const JOUR = 86400, NB = 30;
+const stock = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d }catch(e){ return d } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)) }catch(e){} }
+};
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtJour = t => new Date(t*1000).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+let dernier = null;
+
+/* ---------- Réglages (à remplir) ---------- */
+const CONFIG = {
+  lienAchat: 'https://TA-BOUTIQUE.lemonsqueezy.com/checkout/buy/TON-PRODUIT', // lien de paiement Lemon Squeezy
+  prix: '9 €', periode: '/ mois',
+  gratuitsParJour: 3
+};
+
+/* ---------- Quota gratuit ---------- */
+const aujourdhui = () => new Date().toISOString().slice(0,10);
+const estPro = () => !!stock.get('releve_licence', '');
+function restants(){
+  const u = stock.get('releve_usage', {});
+  return Math.max(0, CONFIG.gratuitsParJour - (u.jour === aujourdhui() ? u.n : 0));
+}
+function compter(){
+  const u = stock.get('releve_usage', {});
+  stock.set('releve_usage', {jour: aujourdhui(), n: (u.jour === aujourdhui() ? u.n : 0) + 1});
+}
+function quota(){
+  if (estPro()){ $('#quota').textContent = 'Pro actif : relevés illimités et résumé IA.'; return; }
+  const n = restants();
+  $('#quota').innerHTML = `${n ? `${n} relevé${n > 1 ? 's' : ''} gratuit${n > 1 ? 's' : ''} restant${n > 1 ? 's' : ''} aujourd'hui.` : 'Plus de relevé gratuit aujourd\'hui.'} <button type="button" id="lienPro">Passer Pro</button>`;
+  $('#lienPro').onclick = ouvrirPro;
+}
+
+/* ---------- Bande 30 jours ---------- */
+function dessinerBande(parJour){
+  const max = Math.max(1, ...parJour.map(j => j.n));
+  const pic = parJour.reduce((a,b) => b.n > a.n ? b : a, parJour[0]);
+  $('#barres').innerHTML = parJour.map((j,i) =>
+    `<div class="barre${j.n ? ' pleine' : ''}${j === pic && j.n ? ' pic' : ''}" data-i="${i}" role="img" aria-label="${fmtJour(j.t)} : ${j.n} publications"></div>`
+  ).join('');
+  requestAnimationFrame(() => document.querySelectorAll('.barre').forEach((b,i) => {
+    b.style.height = Math.max(4, parJour[i].n / max * 100) + '%';
+  }));
+  $('#barres').onclick = e => {
+    const i = e.target.dataset.i; if (i === undefined) return;
+    const j = parJour[i];
+    $('#bulle').textContent = `${fmtJour(j.t)} : ${j.n} publication${j.n > 1 ? 's' : ''}`;
+  };
+}
+function bandeVide(){
+  const now = Math.floor(Date.now()/1000);
+  dessinerBande(Array.from({length:NB}, (_,i) => ({t: now - (NB-1-i)*JOUR, n:0})));
+}
+
+/* ---------- Sources ---------- */
+async function hackerNews(q, depuis){
+  const r = await fetch(`https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(q)}&tags=story&numericFilters=created_at_i>${depuis}&hitsPerPage=80`);
+  if (!r.ok) throw new Error(r.status);
+  const j = await r.json();
+  return j.hits.map(h => ({titre:h.title, lien:h.url || `https://news.ycombinator.com/item?id=${h.objectID}`,
+    score:h.points||0, com:h.num_comments||0, t:h.created_at_i, src:'Hacker News'}));
+}
+async function reddit(q){
+  const r = await fetch(`https://www.reddit.com/search.json?q=${encodeURIComponent(q)}&sort=top&t=month&limit=60&raw_json=1`);
+  if (!r.ok) throw new Error(r.status);
+  const j = await r.json();
+  return j.data.children.map(c => c.data).map(d => ({titre:d.title, lien:'https://www.reddit.com'+d.permalink,
+    score:d.score||0, com:d.num_comments||0, t:d.created_utc, src:'r/'+d.subreddit}));
+}
+async function github(q, depuis){
+  const d = new Date(depuis*1000).toISOString().slice(0,10);
+  const r = await fetch(`https://api.github.com/search/repositories?q=${encodeURIComponent(q)}+created:>${d}&sort=stars&order=desc&per_page=30`);
+  if (!r.ok) throw new Error(r.status);
+  const j = await r.json();
+  return j.items.map(x => ({titre:x.full_name + (x.description ? ' : ' + x.description : ''), lien:x.html_url,
+    score:x.stargazers_count||0, com:x.forks_count||0, t:Date.parse(x.created_at)/1000, src:'GitHub'}));
+}
+
+/* ---------- Analyse ---------- */
+const VIDES = new Set(('the and for with that this from your you are was have has not but what how why can will just about into than then they them their our out more all its it\'s when who get got one new use using via vs les des une pour avec dans sur par pas que qui est sont mais plus tout cette ces son ses aux du de la le et en un il elle nous vous ils comme fait faire être avoir très bien aussi sans entre après avant tout show ask tell').split(' '));
+function motsCles(items, q){
+  const exclus = new Set(q.toLowerCase().split(/\s+/));
+  const c = {};
+  items.forEach(i => (i.titre.toLowerCase().match(/[a-zà-ÿ0-9][a-zà-ÿ0-9+.#-]{2,}/g) || []).forEach(m => {
+    m = m.replace(/[.-]+$/,'');
+    if (m.length < 4 || VIDES.has(m) || exclus.has(m) || /^\d+$/.test(m)) return;
+    c[m] = (c[m]||0) + 1;
+  }));
+  return Object.entries(c).filter(([,n]) => n > 1).sort((a,b) => b[1]-a[1]).slice(0,14);
+}
+function classer(items){
+  const max = {};
+  items.forEach(i => max[i.src] = Math.max(max[i.src]||1, i.score + i.com));
+  return items.map(i => ({...i, poids:(i.score + i.com) / max[i.src] + Math.log10(1 + i.score + i.com)/10}))
+              .sort((a,b) => b.poids - a.poids);
+}
+function parJour(items, now){
+  const jours = Array.from({length:NB}, (_,i) => ({t: now - (NB-1-i)*JOUR, n:0}));
+  items.forEach(i => { const k = NB-1 - Math.floor((now - i.t)/JOUR); if (k >= 0 && k < NB) jours[k].n++; });
+  return jours;
+}
+function resumeSimple(q, items, jours, mots){
+  const pic = jours.reduce((a,b) => b.n > a.n ? b : a, jours[0]);
+  const parSrc = {};
+  items.forEach(i => { const s = i.src.startsWith('r/') ? 'Reddit' : i.src; parSrc[s] = (parSrc[s]||0) + 1; });
+  const top = Object.entries(parSrc).sort((a,b) => b[1]-a[1])[0];
+  return {
+    resume:`${items.length} publications sur « ${q} » en 30 jours. Le pic : ${fmtJour(pic.t)} (${pic.n}). La source la plus active : ${top ? top[0] : '—'}.`,
+    tendances: mots.slice(0,3).map(([m,n]) => `« ${m} » revient ${n} fois`),
+    a_surveiller: items.slice(0,2).map(i => i.titre)
+  };
+}
+/* Serveur Vercel : Reddit fiable + résumé IA (Pro). Repli navigateur si absent. */
+async function serveur(q){
+  const r = await fetch('/api/releve?q=' + encodeURIComponent(q), {headers:{'x-licence': stock.get('releve_licence', '')}});
+  if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) throw new Error('serveur absent');
+  return r.json();
+}
+async function navigateur(q, depuis){
+  const srcs = [['Reddit', reddit(q)], ['Hacker News', hackerNews(q, depuis)], ['GitHub', github(q, depuis)]];
+  const res = await Promise.allSettled(srcs.map(s => s[1]));
+  const sources = {}; let items = [];
+  res.forEach((r,i) => {
+    if (r.status === 'fulfilled'){ sources[srcs[i][0]] = r.value.length; items = items.concat(r.value.filter(x => x.t >= depuis)); }
+    else sources[srcs[i][0]] = null;
+  });
+  return {sources, items: classer(items), pro:false, synthese:null};
+}
+
+/* ---------- Affichage ---------- */
+function afficher(q, items, jours, mots, syn, ia){
+  const ul = l => l?.length ? `<ul>${l.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p>—</p>';
+  $('#resume').innerHTML = `<p>${esc(syn.resume)}</p>
+    <h3>Tendances</h3>${ul(syn.tendances)}
+    <h3>À surveiller</h3>${ul(syn.a_surveiller)}
+    <h3 style="color:var(--ardoise);font-weight:400">${ia ? 'Résumé par IA' : 'Résumé simple. Le résumé IA est inclus dans Pro.'}</h3>`;
+  $('#mots').innerHTML = mots.length ? mots.map(([m,n]) => `<span>${esc(m)}<small>${n}</small></span>`).join('') : '<span>Pas assez de données</span>';
+  $('#liste').innerHTML = items.slice(0,25).map(i => `<li>
+      <div class="pts">${i.score}<small>${i.src === 'GitHub' ? 'étoiles' : 'points'}</small></div>
+      <div><a href="${esc(i.lien)}" target="_blank" rel="noopener">${esc(i.titre)}</a>
+      <div class="meta">${esc(i.src)}, ${fmtJour(i.t)}, ${i.com} ${i.src === 'GitHub' ? 'forks' : 'commentaires'}</div></div></li>`).join('');
+  $('#resultats').classList.remove('cache');
+  dernier = {q, items, syn, mots};
+}
+
+/* ---------- Lancer un relevé ---------- */
+async function relever(q){
+  q = q.trim(); if (!q) return;
+  if (!estPro() && !restants()){ ouvrirPro(); return; }
+  $('#q').value = q; $('#go').disabled = true;
+  $('#etat').textContent = `Relevé en cours pour « ${q} »…`;
+  $('#sources').innerHTML = ''; $('#resultats').classList.add('cache');
+  const now = Math.floor(Date.now()/1000), depuis = now - NB*JOUR;
+  let d;
+  try { d = await serveur(q); } catch(e){ d = await navigateur(q, depuis); }
+  const items = d.items || [];
+  $('#sources').innerHTML = Object.entries(d.sources).map(([n,v]) =>
+    v === null ? `<span class="ko">${n} : indisponible</span>` : `<span class="ok">${n} : ${v}</span>`).join('');
+  $('#go').disabled = false;
+  if (!items.length){ bandeVide(); $('#etat').textContent = `Rien trouvé pour « ${q} » ces 30 derniers jours. Essaie un mot plus large.`; return; }
+
+  if (!estPro()) compter();
+  quota();
+  const jours = parJour(items, now), mots = motsCles(items, q);
+  dessinerBande(jours);
+  $('#bulle').textContent = 'Touche une barre pour voir le jour.';
+  const ia = !!d.synthese;
+  afficher(q, items, jours, mots, d.synthese || resumeSimple(q, items, jours, mots), ia);
+  $('#etat').textContent = `${items.length} publications relevées.` + (d.erreurIA ? ` Résumé IA impossible : ${d.erreurIA}.` : '');
+  const rec = [q, ...stock.get('releve_recents', []).filter(x => x.toLowerCase() !== q.toLowerCase())].slice(0,6);
+  stock.set('releve_recents', rec); recents();
+}
+
+function recents(){
+  const r = stock.get('releve_recents', []);
+  $('#recents').innerHTML = r.map(x => `<button type="button">${esc(x)}</button>`).join('');
+}
+$('#recents').onclick = e => { if (e.target.tagName === 'BUTTON') relever(e.target.textContent); };
+$('#form').onsubmit = e => { e.preventDefault(); relever($('#q').value); };
+
+/* ---------- Copier ---------- */
+$('#copier').onclick = async () => {
+  if (!dernier) return;
+  const {q, items, syn, mots} = dernier;
+  const md = `# Relevé : ${q} (30 derniers jours)\n\n${syn.resume}\n\n## Tendances\n${(syn.tendances||[]).map(x => '- '+x).join('\n')}\n\n## À surveiller\n${(syn.a_surveiller||[]).map(x => '- '+x).join('\n')}\n\n## Mots qui reviennent\n${mots.map(([m,n]) => `${m} (${n})`).join(', ')}\n\n## Top publications\n${items.slice(0,10).map(i => `- [${i.titre}](${i.lien}) : ${i.src}, ${i.score}`).join('\n')}\n`;
+  try { await navigator.clipboard.writeText(md); $('#copier').textContent = 'Relevé copié'; }
+  catch(e){ $('#copier').textContent = 'Copie impossible'; }
+  setTimeout(() => $('#copier').textContent = 'Copier le relevé', 1800);
+};
+
+/* ---------- Pro (licence Lemon Squeezy) ---------- */
+function etatCle(){
+  $('#ouvrirCle').classList.toggle('active', estPro());
+  $('#txtPro').textContent = estPro() ? 'Pro' : 'Passer Pro';
+  quota();
+}
+function ouvrirPro(){
+  $('#cle').value = stock.get('releve_licence', '');
+  $('#msgCle').textContent = '';
+  $('#dlg').showModal();
+}
+$('#prix').innerHTML = `${esc(CONFIG.prix)} <small>${esc(CONFIG.periode)}</small>`;
+$('#acheter').href = CONFIG.lienAchat;
+$('#ouvrirCle').onclick = ouvrirPro;
+$('#sauverCle').onclick = async () => {
+  const cle = $('#cle').value.trim(); if (!cle) return;
+  $('#msgCle').textContent = 'Vérification…'; $('#sauverCle').disabled = true;
+  try {
+    const r = await fetch('/api/licence', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({cle})});
+    const j = await r.json();
+    if (j.valide){ stock.set('releve_licence', cle); etatCle(); $('#msgCle').textContent = 'Pro activé.'; setTimeout(() => $('#dlg').close(), 900); }
+    else $('#msgCle').textContent = 'Clé refusée. Vérifie-la dans l\'e-mail de Lemon Squeezy.';
+  } catch(e){ $('#msgCle').textContent = 'Vérification impossible pour l\'instant. Réessaie dans un moment.'; }
+  $('#sauverCle').disabled = false;
+};
+$('#effacerCle').onclick = () => { stock.set('releve_licence', ''); $('#cle').value = ''; etatCle(); $('#dlg').close(); };
+$('#dlg').onclick = e => { if (e.target === $('#dlg')) $('#dlg').close(); };
+
+bandeVide(); recents(); etatCle();
+</script>
+</body>
+</html>
