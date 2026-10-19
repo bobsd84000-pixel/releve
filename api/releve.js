@@ -77,9 +77,12 @@ export default async function handler(req, res) {
   if (!q) return res.status(400).json({ erreur: 'Sujet manquant' });
 
   const now = Math.floor(Date.now() / 1000), depuis = now - NB * JOUR;
-  const noms = ['Reddit', 'Hacker News', 'GitHub'];
+  // Reddit seulement si les clés sont configurées : sans clés, Reddit bloque les serveurs
+  const redditActif = !!((process.env.REDDIT_CLIENT_ID || '').trim() && (process.env.REDDIT_CLIENT_SECRET || '').trim());
   const diag = {};
-  const res3 = await Promise.allSettled([reddit(q, diag), hackerNews(q, depuis), github(q, depuis)]);
+  const noms = redditActif ? ['Reddit', 'Hacker News', 'GitHub'] : ['Hacker News', 'GitHub'];
+  const appels = redditActif ? [reddit(q, diag), hackerNews(q, depuis), github(q, depuis)] : [hackerNews(q, depuis), github(q, depuis)];
+  const res3 = await Promise.allSettled(appels);
   const sources = {}, erreurs = {};
   let items = [];
   res3.forEach((r, i) => {
